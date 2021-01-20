@@ -3,10 +3,10 @@ from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver import ActionChains
-import datetime
-import math
 from tabulate import tabulate
 from optparse import OptionParser
+import datetime
+import math
 
 def human_format(num):
     magnitude = 0
@@ -31,19 +31,21 @@ options = webdriver.ChromeOptions()
 options.add_argument("--log-level=OFF")
 options.add_experimental_option("excludeSwitches", ["enable-automation"])
 options.add_experimental_option('useAutomationExtension', False)
- 
+
+def getDriver(url_link, msg):
+  driver = webdriver.Chrome(options=options, service_log_path='NUL')
+  try:
+    driver.get(url_link)
+    WebDriverWait(driver, 5)
+  except:
+    print(f"{bcolors.FAIL}" + msg + f"{bcolors.ENDC}")
+    driver.quit()
+    exit(-1)
+  return driver
 
 def fetch_dividend_data(company_symbol):
   url_nasdqa = "http://www.nasdaq.com/market-activity/stocks/" +  company_symbol + "/dividend-history"
-  driver = webdriver.Chrome(options=options, service_log_path='NUL')
-  try:
-    driver.get(url_nasdqa)
-    WebDriverWait(driver, 5)
-  except:
-    print(f"{bcolors.FAIL}Stock is not lists at Nasdaq. Exiting...{bcolors.ENDC}")
-    driver.quit()
-    exit(-1)
-
+  driver = getDriver(url_nasdqa, "Stock not listed at nasdaq")
   html=driver.page_source
   driver.quit()
   soup = BeautifulSoup(html, 'html.parser')
@@ -104,15 +106,7 @@ def fetch_dividend_data(company_symbol):
 
 def fetch_stock_price_date(company_symbol, adjust_stock_price_increase):
   url_mw = "https://www.marketwatch.com/investing/stock/" +  company_symbol + "/analystestimates?mod=mw_quote_tab"
-  driver = webdriver.Chrome(options=options, service_log_path='NUL')
-  try:
-    driver.get(url_mw)
-    WebDriverWait(driver, 5)
-  except:
-    print(f"{bcolors.FAIL}Stock is not lists at Marketwatch. Exiting...{bcolors.ENDC}")
-    driver.quit()
-    exit(-1)
-  
+  driver = getDriver(url_mw, "Stock not listed at marketwatch") 
   html = driver.page_source
   driver.quit()
 
@@ -140,15 +134,7 @@ def fetch_stock_price_date(company_symbol, adjust_stock_price_increase):
 
 def calculate_compound_dividend(invest_amount, cur_price, latest_dividend_amount, avg_div, new_sp_after_adj):
   url_calculator = "https://www.buyupside.com/calculators/dividendreinvestmentdec07.htm"
-  driver = webdriver.Chrome(options=options, service_log_path='NUL')
-  try:
-    driver.get(url_calculator)
-    WebDriverWait(driver, 5)
-  except:
-      print(f"{bcolors.FAIL}Dividend calculator not found. Exiting...{bcolors.ENDC}")
-      driver.quit()
-      exit(-1)
-
+  driver = getDriver(url_calculator, "Dividend calculator not found. Exiting...") 
   no_shares = int(invest_amount/cur_price)
 
   fieldbackspacedict = [ ["initial_number_shares", 3 , no_shares],
@@ -210,7 +196,7 @@ def print_results(invest_amount, company_symbol, result_list, cur_price, avg_tar
   stock_info = [["Initial Investment:" , "$" + human_format(int(math.ceil(invest_amount / 1000.0)) * 1000) ],
         ["Company Symbol:" , company_symbol ],
         ["Initial Number of Shares:" , str(no_shares) ],
-        ["Current Price:" , str(cur_price) ],
+        ["Current Price:" , "$" + str(cur_price) ],
         ["Average Target Price:" , "$" + avg_target_price[3]],
         ["Average Stock Price increase for this year:" , str(round(avg_stock_price_inc,2)) + "%"],
         ["Adjusted Stock Price increase for this year:" , str(round(new_sp_after_adj,2)) + "%"],
@@ -221,15 +207,7 @@ def print_results(invest_amount, company_symbol, result_list, cur_price, avg_tar
 
 def fetch_king_dividend_list():
   url_king_dividend_list = "https://dividendvaluebuilder.com/dividend-kings-list/"
-  driver = webdriver.Chrome(options=options, service_log_path='NUL')
-  try:
-    driver.get(url_king_dividend_list)
-    WebDriverWait(driver, 5)
-  except:
-    print(f"{bcolors.FAIL}Cannot Fetch Dividend Kings. Exiting...{bcolors.ENDC}")
-    driver.quit()
-    exit(-1)
-
+  driver = getDriver(url_king_dividend_list, "Cannot Fetch Dividend Kings. Exiting...")
   html =driver.page_source
   driver.quit()
   soup = BeautifulSoup(html, 'html.parser')
@@ -271,16 +249,14 @@ def add_option_parser():
 
 def main():
 
-  # print(options)
-
-  options = add_option_parser()
-  if(options.sdk):
+  parser_options = add_option_parser()
+  if(parser_options.sdk):
     fetch_king_dividend_list()
     exit(0)
   
-  company_symbol =options.sym
-  invest_amount = options.ii
-  adjust_stock_price_increase = options.asp
+  company_symbol =parser_options.sym
+  invest_amount = parser_options.ii
+  adjust_stock_price_increase = parser_options.asp
   
   DD = fetch_dividend_data(company_symbol)
   SP = fetch_stock_price_date(company_symbol, adjust_stock_price_increase)
