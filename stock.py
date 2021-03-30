@@ -45,16 +45,20 @@ def getDriver(url_link, msg):
 
 def fetch_dividend_data(company_symbol):
   url_nasdqa = "http://www.nasdaq.com/market-activity/stocks/" +  company_symbol + "/dividend-history"
-  driver = getDriver(url_nasdqa, "Stock not listed at nasdaq")
+  driver = getDriver(url_nasdqa, "Stock (" +  company_symbol + ") not listed at nasdaq")
   html=driver.page_source
   driver.quit()
   soup = BeautifulSoup(html, 'html.parser')
-  div_container = soup.find('tbody', class_='dividend-history__table-body')
-
   eff_date = []
-  for ptag in div_container.find_all('th', class_='dividend-history__cell'):
-      # prints the p tag content
-      eff_date.append(ptag.text)
+
+  try:
+    div_container = soup.find('tbody', class_='dividend-history__table-body')
+    for ptag in div_container.find_all('th', class_='dividend-history__cell'):
+        # prints the p tag content
+        eff_date.append(ptag.text)
+  except:
+    print(f"{bcolors.FAIL}Stock (" +  company_symbol + f") not listed at nasdaq{bcolors.ENDC}")
+    exit(-1)
 
   cash_amounts = []
   for ptag in div_container.find_all('td', class_='dividend-history__cell dividend-history__cell--amount'):
@@ -106,9 +110,16 @@ def fetch_dividend_data(company_symbol):
 
 def fetch_stock_price_date(company_symbol, adjust_stock_price_increase):
   url_mw = "https://www.marketwatch.com/investing/stock/" +  company_symbol + "/analystestimates?mod=mw_quote_tab"
-  driver = getDriver(url_mw, "Stock not listed at marketwatch") 
+  driver = getDriver(url_mw, "Stock (" +  company_symbol + ") not listed at marketwatch") 
   html = driver.page_source
   driver.quit()
+
+  soup = BeautifulSoup(html, 'lxml')
+  company_meta_data = soup.find_all('meta')
+  company_name = ""
+  for i in company_meta_data:
+    if str(i.get('name')) == "name":
+      company_name = str(i.get('content'))
 
   soup = BeautifulSoup(html, 'html.parser')
   stock_tables = soup.find('table', class_='table value-pairs no-heading font--lato')
@@ -130,7 +141,7 @@ def fetch_stock_price_date(company_symbol, adjust_stock_price_increase):
   avg_stock_price_inc = ((float(avg_target_price[3])-cur_price)/float(cur_price)) * 100
   new_sp_after_adj = avg_stock_price_inc+adjust_stock_price_increase
 
-  return [cur_price, new_sp_after_adj, avg_target_price, avg_stock_price_inc]
+  return [cur_price, new_sp_after_adj, avg_target_price[3], avg_stock_price_inc, company_name]
 
 def calculate_compound_dividend(invest_amount, cur_price, latest_dividend_amount, avg_div, new_sp_after_adj):
   url_calculator = "https://www.buyupside.com/calculators/dividendreinvestmentdec07.htm"
@@ -191,13 +202,13 @@ def calculate_compound_dividend(invest_amount, cur_price, latest_dividend_amount
   return result_list
 
 
-def print_results(invest_amount, company_symbol, result_list, cur_price, avg_target_price, avg_stock_price_inc, new_sp_after_adj, avg_div, latest_dividend_amount):
+def print_results(invest_amount, company_symbol, company_name, result_list, cur_price, avg_target_price, avg_stock_price_inc, new_sp_after_adj, avg_div, latest_dividend_amount):
   no_shares = int(invest_amount/cur_price)
   stock_info = [["Initial Investment:" , "$" + human_format(int(math.ceil(invest_amount / 1000.0)) * 1000) ],
-        ["Company Symbol:" , company_symbol ],
+        ["Company Symbol:" , company_symbol + " (" + company_name + ")" ],
         ["Initial Number of Shares:" , str(no_shares) ],
         ["Current Price:" , "$" + str(cur_price) ],
-        ["Average Target Price:" , "$" + avg_target_price[3]],
+        ["Average Target Price:" , "$" + avg_target_price],
         ["Average Stock Price increase for this year:" , str(round(avg_stock_price_inc,2)) + "%"],
         ["Adjusted Stock Price increase for this year:" , str(round(new_sp_after_adj,2)) + "%"],
         ["Average Dividend Increase:" , str(round(avg_div,2)) + "%"],
@@ -263,13 +274,14 @@ def main():
 
   # DD[0] = latest_dividend_amount
   # DD[1] = avg_div
-  # [cur_price, new_sp_after_adj, avg_target_price, avg_stock_price_inc]
+  # [cur_price, new_sp_after_adj, avg_target_price, avg_stock_price_inc, company_name]
   # SP[0] = cur_price
   # SP[1] = new_sp_after_adj
   # SP[2] = avg_target_price
   # SP[3] = avg_stock_price_inc
+  # SP[4] = company_name
   result_list = calculate_compound_dividend(invest_amount, SP[0], DD[0], DD[1], SP[1])
-  print_results(invest_amount, company_symbol, result_list, SP[0], SP[2], SP[3], SP[1], DD[1], DD[0])
+  print_results(invest_amount, company_symbol, SP[4], result_list, SP[0], SP[2], SP[3], SP[1], DD[1], DD[0])
 
 if __name__ == "__main__":
   main()
