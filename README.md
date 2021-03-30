@@ -6,7 +6,7 @@ dividend earning and prints result for 10,15,20 years of dividended investments
 # Usage
 
 Usage: stock.py [options]
-
+```
 Options:
   -h, --help            show this help message and exit
   -s SYM, --symbol==SYM
@@ -19,3 +19,4 @@ Options:
                         (e.g. 2,-2)
   --show, --show-dividend-kings
                         Show Top 30 dividend king stocks
+```
